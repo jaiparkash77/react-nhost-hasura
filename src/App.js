@@ -1,23 +1,80 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from "react";
+import { gql, useSubscription, useMutation } from "@apollo/client";
+import { Link } from "react-router-dom";
+import { auth } from "utils/nhost";
+
+const GET_TODOS = gql`
+subscription {
+    todos {
+      id
+      created_at
+      name
+      is_completed
+    }
+  }
+`;
+
+const INSERT_TODO = gql`
+  mutation($todo: todos_insert_input!) {
+    insert_todos(objects: [$todo]) {
+      affected_rows
+    }
+  }
+`;
 
 function App() {
+  const { data, loading } = useSubscription(GET_TODOS);
+  const [insertTodo] = useMutation(INSERT_TODO);
+  const [todoName, setTodoName] = useState("");
+
+  if (loading) {
+    return <div>Loading</div>;
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
+    <div>
+      <Link to="/login">Login</Link>
+      <div onClick={() => auth.logout()}>Logout</div>
+      <div>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+
+            try {
+              await insertTodo({
+                variables: {
+                  todo: {
+                    name: todoName,
+                  },
+                },
+              });
+            } catch (error) {
+              console.error(error);
+              return alert("Error creating todo");
+            }
+            // alert("Todo created");
+            setTodoName("");
+          }}
         >
-          Learn React
-        </a>
-      </header>
+          <input
+            type="text"
+            placeholder="todo"
+            value={todoName}
+            onChange={(e) => setTodoName(e.target.value)}
+          />
+          <button>Create todo</button>
+        </form>
+      </div>
+
+      {!data ? (
+        "No todos"
+      ) : (
+        <ul>
+          {data.todos.map((todo) => {
+            return <li key={todo.id}>{todo.name}</li>;
+          })}
+        </ul>
+      )}
     </div>
   );
 }
